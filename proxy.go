@@ -3,7 +3,6 @@ package main
 import (
 	// Input/Output
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -77,17 +76,8 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	params := &s3.GetObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
 	resp, err := s3Session.GetObject(params)
-	if err != nil {
-		if awserr, ok := err.(awserr.Error); ok {
-			switch awserr.Code() {
-			case "NoSuchKey":
-				http.NotFound(w, r)
-			default:
-				http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
-			}
-		} else {
-			http.Error(w, "An internal error occurred: "+awserr.Message(), 500)
-		}
+
+	if handleHttpException(w, err) != nil {
 		return
 	}
 
@@ -99,23 +89,39 @@ func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	// Convert the uploaded body to a byte array TODO fix this for large sizes
 	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "An internal error occurred: "+fmt.Sprintf("%+v", err), 500)
+
+	if handleHttpException(w, err) != nil {
+		return
 	}
 
 	params := &s3.PutObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath), Body: bytes.NewReader(b)}
 	_, err = s3Session.PutObject(params)
-	if err != nil {
-		if awserr, ok := err.(awserr.Error); ok {
-			http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
-		} else {
-			http.Error(w, "An internal error occurred: "+awserr.Message(), 500)
-		}
+
+	if handleHttpException(w, err) != nil {
 		return
 	}
 
 	// File has been created TODO do not return a 201 if the file was updated
 	http.Redirect(w, r, "/"+filePath, 201)
+}
+
+// Handle an exception and write to response
+func handleHttpException(w http.ResponseWriter, err error) (e error) {
+	if err != nil {
+		if awserr, ok := err.(awserr.Error); ok {
+			// aws error
+			switch awserr.Code() {
+			case "NoSuchKey":
+				http.Error(w, "Not found: "+awserr.Message(), 404)
+			default:
+				http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
+			}
+		} else {
+			// golang error
+			http.Error(w, "An internal error occurred: "+err.Error(), 500)
+		}
+	}
+	return err
 }
 
 // Main method
