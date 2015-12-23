@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	port                   string
-	aws_region, aws_bucket string
-	s3_session             *s3.S3
+	port                 string
+	awsRegion, awsBucket string
+	s3Session            *s3.S3
 )
 
 // Get an environment variable or use a default value if not set
@@ -43,8 +43,8 @@ func getAllEnvVariables() {
 	port = getEnvOrDefault("PORT", "8000", false)
 
 	// Get the AWS credentials
-	aws_region = getEnvOrDefault("AWS_REGION", "eu-west-1", false)
-	aws_bucket = getEnvOrDefault("AWS_BUCKET", "", true)
+	awsRegion = getEnvOrDefault("AWS_REGION", "eu-west-1", false)
+	awsBucket = getEnvOrDefault("AWS_BUCKET", "", true)
 	getEnvOrDefault("AWS_ACCESS_KEY_ID", "", true)
 	getEnvOrDefault("AWS_SECRET_ACCESS_KEY", "", true)
 }
@@ -62,9 +62,9 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 }
 
 // Serve a GET request for a S3 file
-func serveGetS3File(file_path string, w http.ResponseWriter, r *http.Request) {
-	params := &s3.GetObjectInput{Bucket: aws.String(aws_bucket), Key: aws.String(file_path)}
-	resp, err := s3_session.GetObject(params)
+func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
+	params := &s3.GetObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
+	resp, err := s3Session.GetObject(params)
 	if err != nil {
 		if awserr, ok := err.(awserr.Error); ok {
 			switch awserr.Code() {
@@ -86,7 +86,7 @@ func main() {
 	// Set up all the environment variables
 	getAllEnvVariables()
 
-	s3_session = s3.New(session.New(), &aws.Config{Region: aws.String(aws_region)})
+	s3Session = s3.New(session.New(), &aws.Config{Region: aws.String(awsRegion)})
 
 	// Run the webserver
 	http.HandleFunc("/", serveS3File)
