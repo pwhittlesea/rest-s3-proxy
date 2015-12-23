@@ -2,7 +2,10 @@ package main
 
 import (
 	// Input/Output
+	"bytes"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -53,9 +56,18 @@ func getAllEnvVariables() {
 func serveS3File(w http.ResponseWriter, r *http.Request) {
 	var method = r.Method
 	var path = r.URL.Path[1:] // Remove the / from the start of the URL
+
+	// A file with no path cannot be served
+	if path == "" {
+		http.Error(w, "Path must be provided", 400)
+		return
+	}
+
 	switch method {
 	case "GET":
 		serveGetS3File(path, w, r)
+	case "PUT":
+		servePutS3File(path, w, r)
 	default:
 		http.Error(w, "Method "+method+" not supported", 405)
 	}
@@ -69,16 +81,41 @@ func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 		if awserr, ok := err.(awserr.Error); ok {
 			switch awserr.Code() {
 			case "NoSuchKey":
-				http.Error(w, "Requested file not found", 404)
+				http.NotFound(w, r)
 			default:
 				http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
 			}
 		} else {
 			http.Error(w, "An internal error occurred: "+awserr.Message(), 500)
 		}
-	} else {
-		io.Copy(w, resp.Body)
+		return
 	}
+
+	// File is ready to download
+	io.Copy(w, resp.Body)
+}
+
+// Serve a PUT request for a S3 file
+func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
+	// Convert the uploaded body to a byte array TODO fix this for large sizes
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "An internal error occurred: "+fmt.Sprintf("%+v", err), 500)
+	}
+
+	params := &s3.PutObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath), Body: bytes.NewReader(b)}
+	_, err = s3Session.PutObject(params)
+	if err != nil {
+		if awserr, ok := err.(awserr.Error); ok {
+			http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
+		} else {
+			http.Error(w, "An internal error occurred: "+awserr.Message(), 500)
+		}
+		return
+	}
+
+	// File has been created TODO do not return a 201 if the file was updated
+	http.Redirect(w, r, "/"+filePath, 201)
 }
 
 // Main method

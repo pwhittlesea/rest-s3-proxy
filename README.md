@@ -1,6 +1,19 @@
 # REST S3 Proxy [![Build Status](https://travis-ci.org/pwhittlesea/rest-s3-proxy.svg?branch=develop)](https://travis-ci.org/pwhittlesea/rest-s3-proxy)
 Microservice to provide S3-backed persistent storage to a cluster using REST
 
+## Current Support
+
+| Method  | Supported    |
+|:-------:|:------------:|
+| GET     | Yes          |
+| PUT     | Yes          |
+| DELETE  | No (planned) |
+| HEAD    | No (planned) |
+| POST    | No           |
+| TRACE   | No           |
+| CONNECT | No           |
+| OPTIONS | No           |
+
 ## Example
 Given a S3 bucket named ***my-bucket*** with a file in it called ***my-file.xml***.
 
