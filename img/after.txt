@@ -1,0 +1,23 @@
+@startuml
+
+node "Cluster 1" {
+    package "REST S3 Proxy" {
+        component [REST API] as rest1
+        component [AWS SDK] as sdk0
+    }
+    component [Application 4] as app1
+    component [Application 3] as app2
+    component [Application 2] as app3
+    component [Application 1] as app4
+}
+database "S3 Bucket" as b1 {
+}
+
+rest1 -down-> sdk0
+sdk0 -down-> b1
+app1 --> rest1
+app2 --> rest1
+app3 --> rest1
+app4 --> rest1
+
+@enduml

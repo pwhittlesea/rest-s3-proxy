@@ -1,0 +1,33 @@
+@startuml
+
+node "Cluster 2" {
+    package "Application 4" {
+        component [Code] as code4
+        component [AWS SDK] as sdk4
+    }
+    package "Application 3" {
+        component [Code] as code3
+        component [AWS SDK] as sdk3
+    }
+    package "Application 2" {
+        component [Code] as code2
+        component [AWS SDK] as sdk2
+    }
+    package "Application 1" {
+        component [Code] as code1
+        component [AWS SDK] as sdk1
+    }
+}
+database "S3 Bucket" as b2 {
+}
+
+code1 -down-> sdk1
+sdk1 -down-> b2
+code2 -down-> sdk2
+sdk2 -down-> b2
+code3 -down-> sdk3
+sdk3 -down-> b2
+code4 -down-> sdk4
+sdk4 -down-> b2
+
+@enduml
