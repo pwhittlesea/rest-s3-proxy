@@ -67,6 +67,8 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 		serveGetS3File(path, w, r)
 	case "PUT":
 		servePutS3File(path, w, r)
+	case "DELETE":
+		serveDeleteS3File(path, w, r)
 	default:
 		http.Error(w, "Method "+method+" not supported", 405)
 	}
@@ -77,7 +79,7 @@ func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	params := &s3.GetObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
 	resp, err := s3Session.GetObject(params)
 
-	if handleHttpException(w, err) != nil {
+	if handleHTTPException(w, err) != nil {
 		return
 	}
 
@@ -90,14 +92,14 @@ func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	// Convert the uploaded body to a byte array TODO fix this for large sizes
 	b, err := ioutil.ReadAll(r.Body)
 
-	if handleHttpException(w, err) != nil {
+	if handleHTTPException(w, err) != nil {
 		return
 	}
 
 	params := &s3.PutObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath), Body: bytes.NewReader(b)}
 	_, err = s3Session.PutObject(params)
 
-	if handleHttpException(w, err) != nil {
+	if handleHTTPException(w, err) != nil {
 		return
 	}
 
@@ -105,8 +107,21 @@ func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/"+filePath, 201)
 }
 
+// Serve a DELETE request for a S3 file
+func serveDeleteS3File(filePath string, w http.ResponseWriter, r *http.Request) {
+	params := &s3.DeleteObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
+	_, err := s3Session.DeleteObject(params)
+
+	if handleHTTPException(w, err) != nil {
+		return
+	}
+
+	// File has been deleted
+	http.Redirect(w, r, "/", 200)
+}
+
 // Handle an exception and write to response
-func handleHttpException(w http.ResponseWriter, err error) (e error) {
+func handleHTTPException(w http.ResponseWriter, err error) (e error) {
 	if err != nil {
 		if awserr, ok := err.(awserr.Error); ok {
 			// aws error
