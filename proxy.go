@@ -117,7 +117,7 @@ func serveDeleteS3File(filePath string, w http.ResponseWriter, r *http.Request) 
 	}
 
 	// File has been deleted
-	http.Redirect(w, r, "/", 200)
+	w.WriteHeader(204)
 }
 
 // Handle an exception and write to response
