@@ -1,4 +1,15 @@
+sudo: required
+
 language: go
 
 go:
   - 1.5
+
+services:
+  - docker
+
+after_success:
+  - go build -o app .
+  - ls -la .
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - docker build -t pwhittlesea/rest-s3-proxy .
