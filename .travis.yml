@@ -10,6 +10,6 @@ services:
 
 after_success:
   - go build -o app .
-  - ls -la .
   - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - docker build -t pwhittlesea/rest-s3-proxy .
+  - docker push pwhittlesea/rest-s3-proxy
