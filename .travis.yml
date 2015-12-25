@@ -12,4 +12,5 @@ after_success:
   - go build -o app .
   - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - docker build -t pwhittlesea/rest-s3-proxy .
+  - docker images
   - docker push pwhittlesea/rest-s3-proxy
