@@ -131,7 +131,12 @@ func handleHTTPException(w http.ResponseWriter, err error) (e error) {
 			case "NoSuchKey":
 				http.Error(w, "Not found: " + awserr.Message(), 404)
 			default:
-				http.Error(w, "An internal error occurred: " + awserr.Code() + " = " + awserr.Message(), 500)
+				origErr := awserr.OrigErr()
+				cause := ""
+				if origErr != nil {
+					cause = " (Cause: " + origErr.Error() + ")"
+				}
+				http.Error(w, "An internal error occurred: " + awserr.Code() + " = " + awserr.Message() + cause, 500)
 			}
 		} else {
 			// golang error
