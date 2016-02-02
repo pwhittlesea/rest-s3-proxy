@@ -1,17 +1,17 @@
 package main
 
 import (
-	// Input/Output
+// Input/Output
 	"bytes"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 
-	// Webserver
+// Webserver
 	"net/http"
 
-	// AWS
+// AWS
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	port                 string
+	port string
 	awsRegion, awsBucket string
 	s3Session            *s3.S3
 )
@@ -32,9 +32,9 @@ func getEnvOrDefault(envName, defaultVal string, fatal bool) (envVal string) {
 			log.Fatal("Unable to start as env " + envName + " is not defined")
 		}
 		envVal = defaultVal
-		log.Output(1, "Using default "+envName+": "+envVal)
+		log.Output(1, "Using default " + envName + ": " + envVal)
 	} else {
-		log.Output(1, envName+": "+envVal)
+		log.Output(1, envName + ": " + envVal)
 	}
 	return
 }
@@ -62,6 +62,8 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Output(1, "Handling " + method + " request for " + path)
+
 	switch method {
 	case "GET":
 		serveGetS3File(path, w, r)
@@ -70,7 +72,7 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 	case "DELETE":
 		serveDeleteS3File(path, w, r)
 	default:
-		http.Error(w, "Method "+method+" not supported", 405)
+		http.Error(w, "Method " + method + " not supported", 405)
 	}
 }
 
@@ -104,7 +106,7 @@ func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// File has been created TODO do not return a 201 if the file was updated
-	http.Redirect(w, r, "/"+filePath, 201)
+	http.Redirect(w, r, "/" + filePath, 201)
 }
 
 // Serve a DELETE request for a S3 file
@@ -127,13 +129,13 @@ func handleHTTPException(w http.ResponseWriter, err error) (e error) {
 			// aws error
 			switch awserr.Code() {
 			case "NoSuchKey":
-				http.Error(w, "Not found: "+awserr.Message(), 404)
+				http.Error(w, "Not found: " + awserr.Message(), 404)
 			default:
-				http.Error(w, "An internal error occurred: "+awserr.Code()+" = "+awserr.Message(), 500)
+				http.Error(w, "An internal error occurred: " + awserr.Code() + " = " + awserr.Message(), 500)
 			}
 		} else {
 			// golang error
-			http.Error(w, "An internal error occurred: "+err.Error(), 500)
+			http.Error(w, "An internal error occurred: " + err.Error(), 500)
 		}
 	}
 	return err
@@ -148,7 +150,7 @@ func main() {
 
 	// Run the webserver
 	http.HandleFunc("/", serveS3File)
-	err := http.ListenAndServe(":"+port, nil)
+	err := http.ListenAndServe(":" + port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
