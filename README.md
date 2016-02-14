@@ -106,3 +106,13 @@ The secret AWS access key for authentication.
 The name of the bucket.
 
 *Mandatory - Application will exit if not present*
+
+#### HEALTH_FILE
+The file that will be fetched to ensure S3 connection is working.
+
+*Optional - Default: .rest-s3-proxy*
+
+#### HEALTH_CACHE_INTERVAL
+The number of seconds health checks (*/healthz*) will be cached for.
+
+*Optional - Default: 120*
