@@ -86,7 +86,7 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 
 	// A file with no path cannot be served
 	if path == "" {
-		http.Error(w, "Path must be provided", 400)
+		http.Error(w, "Path must be provided", http.StatusBadRequest)
 		return
 	}
 
@@ -95,7 +95,7 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 		if method == "GET" {
 			serveHealth(w, r)
 		} else {
-			http.Error(w, "/healthz is restricted to GET requests", 405)
+			http.Error(w, "/healthz is restricted to GET requests", http.StatusMethodNotAllowed)
 		}
 		return
 	}
@@ -110,7 +110,7 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 	case "DELETE":
 		serveDeleteS3File(path, w, r)
 	default:
-		http.Error(w, "Method " + method + " not supported", 405)
+		http.Error(w, "Method " + method + " not supported", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -166,8 +166,8 @@ func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// File has been created TODO do not return a 201 if the file was updated
-	http.Redirect(w, r, "/" + filePath, 201)
+	// File has been created TODO do not return a http.StatusCreated if the file was updated
+	http.Redirect(w, r, "/" + filePath, http.StatusCreated)
 }
 
 // Serve a DELETE request for a S3 file
@@ -180,7 +180,7 @@ func serveDeleteS3File(filePath string, w http.ResponseWriter, r *http.Request) 
 	}
 
 	// File has been deleted
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Handle an exception and write to response
@@ -190,18 +190,18 @@ func handleHTTPException(path string, w http.ResponseWriter, err error) (e error
 			// aws error
 			switch awsError.Code() {
 			case "NoSuchKey":
-				http.Error(w, "Path '" + path + "' not found: " + awsError.Message(), 404)
+				http.Error(w, "Path '" + path + "' not found: " + awsError.Message(), http.StatusNotFound)
 			default:
 				origErr := awsError.OrigErr()
 				cause := ""
 				if origErr != nil {
 					cause = " (Cause: " + origErr.Error() + ")"
 				}
-				http.Error(w, "An internal error occurred: " + awsError.Code() + " = " + awsError.Message() + cause, 500)
+				http.Error(w, "An internal error occurred: " + awsError.Code() + " = " + awsError.Message() + cause, http.StatusInternalServerError)
 			}
 		} else {
 			// golang error
-			http.Error(w, "An internal error occurred: " + err.Error(), 500)
+			http.Error(w, "An internal error occurred: " + err.Error(), http.StatusInternalServerError)
 		}
 	}
 	return err
