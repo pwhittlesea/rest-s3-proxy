@@ -10,7 +10,7 @@ Application to provide S3-backed persistent storage to a cluster using HTTP REST
 | GET     | Yes          |
 | PUT     | Yes          |
 | DELETE  | Yes          |
-| HEAD    | No (planned) |
+| HEAD    | YES          |
 | POST    | No           |
 | TRACE   | No           |
 | CONNECT | No           |
