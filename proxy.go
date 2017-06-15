@@ -1,21 +1,22 @@
 package main
 
 import (
-// Input/Output
+	// Input/Output
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 
-// Time
-	"time"
 	"strconv"
+	// Time
+	"time"
 
-// Webserver
+	// Webserver
 	"net/http"
 
-// AWS
+	// AWS
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -23,19 +24,19 @@ import (
 )
 
 var (
-// Loggers
-	Info    *log.Logger
-	Error   *log.Logger
+	// Loggers
+	Info  *log.Logger
+	Error *log.Logger
 
-// Health
-	healthFile string
+	// Health
+	healthFile               string
 	healthCheckCacheInterval int64
-	lastHealthCheckTime int64
+	lastHealthCheckTime      int64
 
-// Web server
+	// Web server
 	port string
 
-// AWS settings
+	// AWS settings
 	awsRegion, awsBucket string
 	s3Session            *s3.S3
 )
@@ -109,9 +110,28 @@ func serveS3File(w http.ResponseWriter, r *http.Request) {
 		servePutS3File(path, w, r)
 	case "DELETE":
 		serveDeleteS3File(path, w, r)
+	case "HEAD":
+		serveHeadS3File(path, w, r)
 	default:
-		http.Error(w, "Method " + method + " not supported", http.StatusMethodNotAllowed)
+		http.Error(w, "Method "+method+" not supported", http.StatusMethodNotAllowed)
 	}
+}
+
+// Serve a HEAD request for a S3 file
+func serveHeadS3File(filePath string, w http.ResponseWriter, r *http.Request) {
+	input := &s3.HeadObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
+	etag := r.Header.Get("ETag")
+	if etag != "" {
+		input.IfNoneMatch = &etag
+	}
+	resp, err := s3Session.HeadObject(input)
+	if handleHTTPException(filePath, w, err) != nil {
+		return
+	}
+	w.Header().Set("Content-Type", *resp.ContentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", *resp.ContentLength))
+	w.Header().Set("Last-Modified", resp.LastModified.String())
+	w.Header().Set("Etag", *resp.ETag)
 }
 
 // Serve a health request
@@ -142,6 +162,11 @@ func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	params := &s3.GetObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
 	resp, err := s3Session.GetObject(params)
 
+	w.Header().Set("Content-Type", *resp.ContentType)
+	w.Header().Set("Last-Modified", resp.LastModified.String())
+	w.Header().Set("Etag", *resp.ETag)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", *resp.ContentLength))
+
 	if handleHTTPException(filePath, w, err) != nil {
 		return
 	}
@@ -160,14 +185,16 @@ func servePutS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := &s3.PutObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath), Body: bytes.NewReader(b)}
-	_, err = s3Session.PutObject(params)
+
+	resp, err := s3Session.PutObject(params)
 
 	if handleHTTPException(filePath, w, err) != nil {
 		return
 	}
+	w.Header().Set("ETag", *resp.ETag)
 
 	// File has been created TODO do not return a http.StatusCreated if the file was updated
-	http.Redirect(w, r, "/" + filePath, http.StatusCreated)
+	http.Redirect(w, r, "/"+filePath, http.StatusCreated)
 }
 
 // Serve a DELETE request for a S3 file
@@ -189,19 +216,23 @@ func handleHTTPException(path string, w http.ResponseWriter, err error) (e error
 		if awsError, ok := err.(awserr.Error); ok {
 			// aws error
 			switch awsError.Code() {
-			case "NoSuchKey":
-				http.Error(w, "Path '" + path + "' not found: " + awsError.Message(), http.StatusNotFound)
+			case "MissingContentLength":
+				http.Error(w, "Bad Request", http.StatusBadRequest)
+			case "NotModified":
+				http.Error(w, "Object not modified", http.StatusNotModified)
+			case "NoSuchKey", "NotFound":
+				http.Error(w, "Path '"+path+"' not found: "+awsError.Message(), http.StatusNotFound)
 			default:
 				origErr := awsError.OrigErr()
 				cause := ""
 				if origErr != nil {
 					cause = " (Cause: " + origErr.Error() + ")"
 				}
-				http.Error(w, "An internal error occurred: " + awsError.Code() + " = " + awsError.Message() + cause, http.StatusInternalServerError)
+				http.Error(w, "An internal error occurred: "+awsError.Code()+" = "+awsError.Message()+cause, http.StatusInternalServerError)
 			}
 		} else {
 			// golang error
-			http.Error(w, "An internal error occurred: " + err.Error(), http.StatusInternalServerError)
+			http.Error(w, "An internal error occurred: "+err.Error(), http.StatusInternalServerError)
 		}
 	}
 	return err
@@ -209,8 +240,8 @@ func handleHTTPException(path string, w http.ResponseWriter, err error) (e error
 
 // Initialise loggers
 func initLogging(infoHandle io.Writer, errorHandle io.Writer) {
-	Info = log.New(infoHandle, "INFO: ", log.Ldate | log.Ltime | log.Lshortfile)
-	Error = log.New(errorHandle, "ERROR: ", log.Ldate | log.Ltime | log.Lshortfile)
+	Info = log.New(infoHandle, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	Error = log.New(errorHandle, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 // Main method
@@ -230,7 +261,7 @@ func main() {
 
 	// Run the webserver
 	http.HandleFunc("/", serveS3File)
-	err := http.ListenAndServe(":" + port, nil)
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		Error.Println("ListenAndServe: ", err)
 		os.Exit(1)
