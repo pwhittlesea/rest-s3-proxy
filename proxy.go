@@ -162,14 +162,14 @@ func serveGetS3File(filePath string, w http.ResponseWriter, r *http.Request) {
 	params := &s3.GetObjectInput{Bucket: aws.String(awsBucket), Key: aws.String(filePath)}
 	resp, err := s3Session.GetObject(params)
 
+	if handleHTTPException(filePath, w, err) != nil {
+		return
+	}
+
 	w.Header().Set("Content-Type", *resp.ContentType)
 	w.Header().Set("Last-Modified", resp.LastModified.String())
 	w.Header().Set("Etag", *resp.ETag)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", *resp.ContentLength))
-
-	if handleHTTPException(filePath, w, err) != nil {
-		return
-	}
 
 	// File is ready to download
 	io.Copy(w, resp.Body)
